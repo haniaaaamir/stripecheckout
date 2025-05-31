@@ -94,6 +94,24 @@ def create_checkout_session():
     except Exception as e:
         return jsonify(error=str(e)), 400
 
+@app.route('/jotform-hook', methods=['POST'])
+def jotform_hook():
+    try:
+        data = request.form.to_dict()
+        print("Received Jotform data:", data)
+
+        # Example: Extract key fields
+        number_of_kids = int(data.get('number_of_kids', 1))
+        payment_type = data.get('payment_type', 'full').lower()
+
+        # Optionally: Call Stripe checkout
+        # You can reuse your existing logic by calling `create_checkout_session()` internally
+        # Or redirect users to Stripe Checkout directly if using the frontend
+
+        return jsonify({"status": "received"}), 200
+    except Exception as e:
+        return jsonify(error=str(e)), 400
+
 @app.route('/session-status', methods=['GET'])
 def session_status():
     session_id = request.args.get('session_id')
