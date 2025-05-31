@@ -8,7 +8,7 @@ stripe.api_key = 'sk_test_51RS0iTHBc2BQhQpd7U1M8SX3mNDtveLR0ItmVWPR5fzqjNA2UwiEz
 
 app = Flask(__name__, static_url_path='', static_folder='public')
 
-YOUR_DOMAIN = 'https://stripecheckout-jw1o.onrender.com'
+YOUR_DOMAIN = 'https://stripecheckout-jotform.onrender.com'
 YOUR_PRODUCT_ID = 'prod_SPnt2yMB3QVrLX'  
 WEBHOOK_SECRET = 'whsec_FSKYA00pFHTgVrgEyn5RieY2png2MdWz'  
 
