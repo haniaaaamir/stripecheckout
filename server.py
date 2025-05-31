@@ -8,9 +8,9 @@ stripe.api_key = 'sk_test_51RS0iTHBc2BQhQpd7U1M8SX3mNDtveLR0ItmVWPR5fzqjNA2UwiEz
 
 app = Flask(__name__, static_url_path='', static_folder='public')
 
-YOUR_DOMAIN = 'http://localhost:4242'
+YOUR_DOMAIN = 'https://stripecheckout-jw1o.onrender.com'
 YOUR_PRODUCT_ID = 'prod_SPnt2yMB3QVrLX'  
-WEBHOOK_SECRET = 'whsec_XXXXXXXXXXXXXXXX'  # Replace with your Stripe webhook secret
+WEBHOOK_SECRET = 'whsec_FSKYA00pFHTgVrgEyn5RieY2png2MdWz'  
 
 MAX_KIDS = 5
 MAX_BIWEEKLY_PAYMENTS = 3
