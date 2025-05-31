@@ -15,47 +15,6 @@ WEBHOOK_SECRET = 'whsec_XXXXXXXXXXXXXXXX'  # Replace with your Stripe webhook se
 MAX_KIDS = 5
 MAX_BIWEEKLY_PAYMENTS = 3
 
-endpoint_secret = 'whsec_...'  # Replace with your actual webhook secret
-
-@app.route('/webhook', methods=['POST'])
-def stripe_webhook():
-    payload = request.data
-    sig_header = request.headers.get('stripe-signature')
-    event = None
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, endpoint_secret
-        )
-    except ValueError as e:
-        # Invalid payload
-        print('⚠️ Invalid payload')
-        return jsonify(success=False), 400
-    except stripe.error.SignatureVerificationError as e:
-        # Invalid signature
-        print('⚠️ Invalid signature')
-        return jsonify(success=False), 400
-
-    # Handle the event types you care about
-    if event['type'] == 'checkout.session.completed':
-        session = event['data']['object']
-        print(f"✅ Checkout session completed: {session['id']}")
-        # TODO: Fulfill the order or update DB
-
-    elif event['type'] == 'invoice.paid':
-        invoice = event['data']['object']
-        print(f"✅ Invoice paid: {invoice['id']}")
-        # TODO: Update your records if on a subscription
-
-    elif event['type'] == 'invoice.payment_failed':
-        invoice = event['data']['object']
-        print(f"❌ Payment failed for invoice {invoice['id']}")
-
-    else:
-        print(f"Unhandled event type: {event['type']}")
-
-    return jsonify(success=True), 200
-
 def calculate_total_price(number_of_kids):
     # Discounted price formula: 425 + (kids -1) * 400
     if number_of_kids < 1:
@@ -63,7 +22,6 @@ def calculate_total_price(number_of_kids):
     if number_of_kids > MAX_KIDS:
         raise ValueError(f"Cannot register more than {MAX_KIDS} kids.")
     return 425 + (number_of_kids - 1) * 400
-
 
 def create_biweekly_price(amount_cents):
     """
@@ -78,7 +36,6 @@ def create_biweekly_price(amount_cents):
     )
     return price.id
 
-
 @app.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
     try:
@@ -90,11 +47,6 @@ def create_checkout_session():
         total_cents = int(total_price * 100)
 
         if payment_type == 'full':
-            # Create one-time payment Price
-            # For simplicity, we assume a Price created in Stripe dashboard for $1
-            # and use quantity to adjust total, but better to create dynamic Price here
-            # Let's create a one-time dynamic Price on the fly:
-
             price = stripe.Price.create(
                 unit_amount=total_cents,
                 currency='usd',
@@ -114,10 +66,7 @@ def create_checkout_session():
             )
 
         elif payment_type == 'biweekly':
-            # Divide total by 3 payments
             per_payment_cents = total_cents // MAX_BIWEEKLY_PAYMENTS
-
-            # Create dynamic recurring price for biweekly payments
             price_id = create_biweekly_price(per_payment_cents)
 
             session = stripe.checkout.Session.create(
@@ -129,7 +78,7 @@ def create_checkout_session():
                 mode='subscription',
                 subscription_data={
                     'metadata': {
-                        'paid_cycles': '0',  # Custom metadata to track payments
+                        'paid_cycles': '0',
                         'max_cycles': str(MAX_BIWEEKLY_PAYMENTS),
                     }
                 },
@@ -145,7 +94,6 @@ def create_checkout_session():
     except Exception as e:
         return jsonify(error=str(e)), 400
 
-
 @app.route('/session-status', methods=['GET'])
 def session_status():
     session_id = request.args.get('session_id')
@@ -153,7 +101,6 @@ def session_status():
         return jsonify(error='session_id required'), 400
     session = stripe.checkout.Session.retrieve(session_id)
     return jsonify(status=session.status, customer_email=session.customer_details.email)
-
 
 @app.route('/webhook', methods=['POST'])
 def stripe_webhook():
@@ -165,37 +112,31 @@ def stripe_webhook():
             payload, sig_header, WEBHOOK_SECRET
         )
     except ValueError:
-        # Invalid payload
         return 'Invalid payload', 400
     except stripe.error.SignatureVerificationError:
-        # Invalid signature
         return 'Invalid signature', 400
 
     if event['type'] == 'invoice.paid':
         invoice = event['data']['object']
         subscription_id = invoice['subscription']
 
-        # Retrieve the subscription to check/update metadata
         subscription = stripe.Subscription.retrieve(subscription_id)
 
         paid_cycles = int(subscription.metadata.get('paid_cycles', '0')) + 1
         max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
 
-        # Update paid cycles count
         stripe.Subscription.modify(
             subscription_id,
             metadata={'paid_cycles': str(paid_cycles), 'max_cycles': str(max_cycles)}
         )
 
         if paid_cycles >= max_cycles:
-            # Cancel subscription at period end to stop future payments
             stripe.Subscription.modify(
                 subscription_id,
                 cancel_at_period_end=True
             )
 
     return '', 200
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 4242)))
