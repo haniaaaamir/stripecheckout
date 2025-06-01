@@ -22,8 +22,7 @@ def calculate_total_price(number_of_kids):
         raise ValueError("Must register at least one kid.")
     if number_of_kids > MAX_KIDS:
         raise ValueError(f"Cannot register more than {MAX_KIDS} kids.")
-    #return (425 + (number_of_kids - 1) * 400) * 1.029
-    return (2 + (number_of_kids - 1) * 1)
+    return (425 + (number_of_kids - 1) * 400) * 1.029
 
 def create_biweekly_price(amount_cents):
     """
@@ -128,6 +127,61 @@ def stripe_webhook():
     sig_header = request.headers.get('stripe-signature')
 
     try:
+        event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
+    except ValueError:
+        return 'Invalid payload', 400
+    except stripe.error.SignatureVerificationError:
+        return 'Invalid signature', 400
+
+    if event['type'] == 'invoice.paid':
+        invoice = event['data']['object']
+        subscription_id = invoice['subscription']
+        subscription = stripe.Subscription.retrieve(subscription_id)
+
+        paid_cycles = int(subscription.metadata.get('paid_cycles', '0')) + 1
+        max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
+
+        # Update metadata
+        stripe.Subscription.modify(
+            subscription_id,
+            metadata={
+                'paid_cycles': str(paid_cycles),
+                'max_cycles': str(max_cycles)
+            }
+        )
+
+        if paid_cycles >= max_cycles:
+            # Cancel subscription immediately
+            stripe.Subscription.delete(subscription_id)
+            print(f"Payment {subscription_id} stopped after {paid_cycles}/{max_cycles} payments.")
+
+    elif event['type'] == 'invoice.created':
+        invoice = event['data']['object']
+        subscription_id = invoice['subscription']
+        subscription = stripe.Subscription.retrieve(subscription_id)
+
+        paid_cycles = int(subscription.metadata.get('paid_cycles', '0'))
+        max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
+
+        if paid_cycles >= max_cycles:
+            # Void the invoice so customer isn't charged again
+            stripe.Invoice.void_invoice(invoice['id'])
+            print(f"Voided invoice for {subscription_id} (paid_cycles={paid_cycles}, max={max_cycles})")
+
+    elif event['type'] == 'invoice.payment_failed':
+        invoice = event['data']['object']
+        print(f"Payment failed for {invoice['subscription']}")
+
+    return '', 200
+
+
+'''
+@app.route('/webhook', methods=['POST'])
+def stripe_webhook():
+    payload = request.data
+    sig_header = request.headers.get('stripe-signature')
+
+    try:
         event = stripe.Webhook.construct_event(
             payload, sig_header, WEBHOOK_SECRET
         )
@@ -164,6 +218,9 @@ def stripe_webhook():
         print(f"Payment failed for {invoice['subscription']}")
 
     return '', 200
+    '''
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 4242)))
