@@ -95,65 +95,6 @@ def redirect_to_checkout():
         return jsonify(error=str(e)), 400
 
 # END OF NEW ADDITION
-'''
-@app.route('/create-checkout-session', methods=['POST'])
-def create_checkout_session():
-    try:
-        data = request.json
-        number_of_kids = int(data.get('number_of_kids', 1))
-        payment_type = data.get('payment_type', 'full').lower()
-
-        total_price = calculate_total_price(number_of_kids)
-        total_cents = int(total_price * 100)
-
-        if payment_type == 'full':
-            price = stripe.Price.create(
-                unit_amount=total_cents,
-                currency='cad',
-                product=YOUR_PRODUCT_ID,
-            )
-            price_id = price.id
-
-            session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=[{
-                    'price': price_id,
-                    'quantity': 1,
-                }],
-                mode='payment',
-                success_url= 'https://stripecheckout-jotform.onrender.com' + '/return.html?session_id={CHECKOUT_SESSION_ID}',
-                cancel_url='https://stripecheckout-jotform.onrender.com' + '/checkout.html',
-            )
-
-        elif payment_type == 'biweekly':
-            per_payment_cents = total_cents // MAX_BIWEEKLY_PAYMENTS
-            price_id = create_biweekly_price(per_payment_cents)
-
-            session = stripe.checkout.Session.create(
-                payment_method_types=['card'],
-                line_items=[{
-                    'price': price_id,
-                    'quantity': 1,
-                }],
-                mode='subscription',
-                subscription_data={
-                    'metadata': {
-                        'paid_cycles': '0',
-                        'max_cycles': str(MAX_BIWEEKLY_PAYMENTS),
-                    }
-                },
-                success_url='https://stripecheckout-jotform.onrender.com' + '/return.html?session_id={CHECKOUT_SESSION_ID}',
-                cancel_url='https://stripecheckout-jotform.onrender.com' + '/checkout.html',
-            )
-
-        else:
-            return jsonify(error='Invalid payment_type, must be "full" or "biweekly"'), 400
-
-        return jsonify(url=session.url)
-
-    except Exception as e:
-        return jsonify(error=str(e)), 400
-'''
 
 @app.route('/jotform-hook', methods=['POST'])
 def jotform_hook():
