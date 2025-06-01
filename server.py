@@ -21,7 +21,7 @@ def calculate_total_price(number_of_kids):
         raise ValueError("Must register at least one kid.")
     if number_of_kids > MAX_KIDS:
         raise ValueError(f"Cannot register more than {MAX_KIDS} kids.")
-    return 425 + (number_of_kids - 1) * 400
+    return (425 + (number_of_kids - 1) * 400) * 1.029
 
 def create_biweekly_price(amount_cents):
     """
