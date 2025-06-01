@@ -21,7 +21,8 @@ def calculate_total_price(number_of_kids):
         raise ValueError("Must register at least one kid.")
     if number_of_kids > MAX_KIDS:
         raise ValueError(f"Cannot register more than {MAX_KIDS} kids.")
-    return (425 + (number_of_kids - 1) * 400) * 1.029
+    #return (425 + (number_of_kids - 1) * 400) * 1.029
+    return (2 + (number_of_kids - 1) * 1
 
 def create_biweekly_price(amount_cents):
     """
@@ -32,7 +33,7 @@ def create_biweekly_price(amount_cents):
         unit_amount=amount_cents,
         currency='cad',
         recurring={'interval': 'week', 'interval_count': 2},
-        product=YOUR_PRODUCT_ID,
+        product='prod_SPnt2yMB3QVrLX',
     )
     return price.id
 
@@ -44,6 +45,7 @@ def redirect_to_checkout():
     try:
         number_of_kids = int(request.args.get('number_of_kids', 1))
         payment_type = request.args.get('payment_type', 'full').lower()
+        email = request.args.get("email", "test@example.com")
 
         total_price = calculate_total_price(number_of_kids)
         total_cents = int(total_price * 100)
@@ -52,7 +54,7 @@ def redirect_to_checkout():
             price = stripe.Price.create(
                 unit_amount=total_cents,
                 currency='cad',
-                product=YOUR_PRODUCT_ID,
+                product='prod_SPnt2yMB3QVrLX',
             )
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
@@ -65,11 +67,28 @@ def redirect_to_checkout():
                 cancel_url='https://stripecheckout-jotform.onrender.com' + '/checkout.html',
             )
         elif payment_type == 'biweekly':
+            test_clock = stripe.test_helpers.TestClock.create(
+                frozen_time=int(time.time()),
+                name="Test for Biweekly Payment"
+            )
+            customer=stripe.Customer.create(
+                email=email,
+                test_clock=test_clock.id,
+            )
             per_payment_cents = total_cents // MAX_BIWEEKLY_PAYMENTS
-            price_id = create_biweekly_price(per_payment_cents)
-
+            #price_id = create_biweekly_price(per_payment_cents)
+            price = stripe.Price.create(
+                unit_amount=per_payment_cents,
+                currency='cad',
+                recurring={'interval': 'minute', 'interval_count':2},
+                product='prod_SPnt2yMB3QVrLX',
+            )
+            price_id = price.id
+            
+            
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
+                customer=customer.id,
                 line_items=[{
                     'price': price_id,
                     'quantity': 1,
@@ -93,7 +112,7 @@ def redirect_to_checkout():
         return jsonify(error=str(e)), 400
 
 # END OF NEW ADDITION
-
+'''
 @app.route('/create-checkout-session', methods=['POST'])
 def create_checkout_session():
     try:
@@ -151,7 +170,7 @@ def create_checkout_session():
 
     except Exception as e:
         return jsonify(error=str(e)), 400
-
+'''
 
 @app.route('/jotform-hook', methods=['POST'])
 def jotform_hook():
@@ -204,7 +223,9 @@ def stripe_webhook():
 
         stripe.Subscription.modify(
             subscription_id,
-            metadata={'paid_cycles': str(paid_cycles), 'max_cycles': str(max_cycles)}
+            metadata={
+                'paid_cycles': str(paid_cycles), 
+                'max_cycles': str(max_cycles)}
         )
 
         if paid_cycles >= max_cycles:
@@ -212,6 +233,11 @@ def stripe_webhook():
                 subscription_id,
                 cancel_at_period_end=True
             )
+            print(f"Payment is set to stop at period end (Reached {paid_cycles}/{max_cycles})")
+            
+    elif event['type'] == 'invoice.payment_failed':
+        invoice = event['data']['object']
+        print(f"Payment failed for {invoice['subscription']}")
 
     return '', 200
 
