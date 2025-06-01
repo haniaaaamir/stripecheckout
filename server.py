@@ -30,7 +30,7 @@ def create_biweekly_price(amount_cents):
     """
     price = stripe.Price.create(
         unit_amount=amount_cents,
-        currency='usd',
+        currency='cad',
         recurring={'interval': 'week', 'interval_count': 2},
         product=YOUR_PRODUCT_ID,
     )
@@ -49,7 +49,7 @@ def create_checkout_session():
         if payment_type == 'full':
             price = stripe.Price.create(
                 unit_amount=total_cents,
-                currency='usd',
+                currency='cad',
                 product=YOUR_PRODUCT_ID,
             )
             price_id = price.id
