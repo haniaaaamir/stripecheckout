@@ -46,7 +46,6 @@ def redirect_to_checkout():
     try:
         number_of_kids = int(request.args.get('number_of_kids', 1))
         payment_type = request.args.get('payment_type', 'full').lower()
-        email = request.args.get("email", "test@example.com")
 
         total_price = calculate_total_price(number_of_kids)
         total_cents = int(total_price * 100)
@@ -68,28 +67,11 @@ def redirect_to_checkout():
                 cancel_url='https://stripecheckout-jotform.onrender.com' + '/checkout.html',
             )
         elif payment_type == 'biweekly':
-            test_clock = stripe.test_helpers.TestClock.create(
-                frozen_time=int(time.time()),
-                name="Test for Biweekly Payment"
-            )
-            customer=stripe.Customer.create(
-                email=email,
-                test_clock=test_clock.id,
-            )
             per_payment_cents = total_cents // MAX_BIWEEKLY_PAYMENTS
-            #price_id = create_biweekly_price(per_payment_cents)
-            price = stripe.Price.create(
-                unit_amount=per_payment_cents,
-                currency='cad',
-                recurring={'interval': 'minute', 'interval_count':2},
-                product='prod_SPnt2yMB3QVrLX',
-            )
-            price_id = price.id
-            
-            
+            price_id = create_biweekly_price(per_payment_cents)
+
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
-                customer=customer.id,
                 line_items=[{
                     'price': price_id,
                     'quantity': 1,
