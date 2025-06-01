@@ -1,6 +1,7 @@
 #! /usr/bin/env python3.6
 
 import os
+import time
 from flask import Flask, jsonify, redirect, request, abort
 import stripe
 
