@@ -73,7 +73,7 @@ def create_checkout_session():
                 payment_method_types=['card'],
                 line_items=[{
                     'price': price_id,
-                    'quantity': number_of_kids,
+                    'quantity': 1,
                 }],
                 mode='subscription',
                 subscription_data={
