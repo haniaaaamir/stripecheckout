@@ -38,8 +38,6 @@ def create_biweekly_price(amount_cents):
     return price.id
 
 
-# NEW ADDITION
-
 @app.route('/redirect-to-checkout', methods=['GET'])
 def redirect_to_checkout():
     try:
@@ -93,7 +91,6 @@ def redirect_to_checkout():
     except Exception as e:
         return jsonify(error=str(e)), 400
 
-# END OF NEW ADDITION
 
 @app.route('/jotform-hook', methods=['POST'])
 def jotform_hook():
@@ -101,13 +98,9 @@ def jotform_hook():
         data = request.form.to_dict()
         print("Received Jotform data:", data)
 
-        # Example: Extract key fields
+        # Example: Extract key fields from Jotform
         number_of_kids = int(data.get('number_of_kids', 1))
         payment_type = data.get('payment_type', 'full').lower()
-
-        # Optionally: Call Stripe checkout
-        # You can reuse your existing logic by calling `create_checkout_session()` internally
-        # Or redirect users to Stripe Checkout directly if using the frontend
 
         return jsonify({"status": "received"}), 200
     except Exception as e:
@@ -171,60 +164,13 @@ def stripe_webhook():
 
         if paid_cycles >= max_cycles:
             stripe.Subscription.delete(subscription_id)
-            print(f"Payment {subscription_id} cancelled after {paid_cycles} cycles.")
+            print(f"Payment {subscription_id} stopped after {paid_cycles} cycles.")
 
     elif event_type == 'invoice.payment_failed':
         invoice = event['data']['object']
-        print(f"⚠Payment failed for {invoice.get('subscription')}")
+        print(f"Payment failed for {invoice.get('subscription')}")
 
     return '', 200
-
-
-'''
-@app.route('/webhook', methods=['POST'])
-def stripe_webhook():
-    payload = request.data
-    sig_header = request.headers.get('stripe-signature')
-
-    try:
-        event = stripe.Webhook.construct_event(
-            payload, sig_header, WEBHOOK_SECRET
-        )
-    except ValueError:
-        return 'Invalid payload', 400
-    except stripe.error.SignatureVerificationError:
-        return 'Invalid signature', 400
-
-    if event['type'] == 'invoice.paid':
-        invoice = event['data']['object']
-        subscription_id = invoice['subscription']
-
-        subscription = stripe.Subscription.retrieve(subscription_id)
-
-        paid_cycles = int(subscription.metadata.get('paid_cycles', '0')) + 1
-        max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
-
-        stripe.Subscription.modify(
-            subscription_id,
-            metadata={
-                'paid_cycles': str(paid_cycles), 
-                'max_cycles': str(max_cycles)}
-        )
-
-        if paid_cycles >= max_cycles:
-            stripe.Subscription.modify(
-                subscription_id,
-                cancel_at_period_end=True
-            )
-            print(f"Payment is set to stop at period end (Reached {paid_cycles}/{max_cycles})")
-            
-    elif event['type'] == 'invoice.payment_failed':
-        invoice = event['data']['object']
-        print(f"Payment failed for {invoice['subscription']}")
-
-    return '', 200
-    '''
-
 
 
 if __name__ == '__main__':
