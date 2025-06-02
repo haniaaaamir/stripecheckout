@@ -128,16 +128,33 @@ def stripe_webhook():
 
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, WEBHOOK_SECRET)
-    except ValueError:
-        return 'Invalid payload', 400
-    except stripe.error.SignatureVerificationError:
-        return 'Invalid signature', 400
+    except (ValueError, stripe.error.SignatureVerificationError):
+        return 'Invalid payload or signature', 400
 
-    if event['type'] == 'invoice.paid':
+    event_type = event['type']
+
+    if event_type == 'invoice.created':
         invoice = event['data']['object']
-        subscription_id = invoice['subscription']
-        subscription = stripe.Subscription.retrieve(subscription_id)
+        subscription_id = invoice.get('subscription')
+        if not subscription_id:
+            return '', 200  # Not a subscription invoice
 
+        subscription = stripe.Subscription.retrieve(subscription_id)
+        paid_cycles = int(subscription.metadata.get('paid_cycles', '0'))
+        max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
+
+        if paid_cycles >= max_cycles:
+            stripe.Invoice.void_invoice(invoice['id'])
+            print(f"Voided invoice for {subscription_id} — max cycles reached.")
+            return '', 200
+
+    elif event_type == 'invoice.paid':
+        invoice = event['data']['object']
+        subscription_id = invoice.get('subscription')
+        if not subscription_id:
+            return '', 200
+
+        subscription = stripe.Subscription.retrieve(subscription_id)
         paid_cycles = int(subscription.metadata.get('paid_cycles', '0')) + 1
         max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
 
@@ -150,27 +167,15 @@ def stripe_webhook():
             }
         )
 
+        print(f"Payment #{paid_cycles} received for {subscription_id}")
+
         if paid_cycles >= max_cycles:
-            # Cancel subscription immediately
             stripe.Subscription.delete(subscription_id)
-            print(f"Payment {subscription_id} stopped after {paid_cycles}/{max_cycles} payments.")
+            print(f"Payment {subscription_id} cancelled after {paid_cycles} cycles.")
 
-    elif event['type'] == 'invoice.created':
+    elif event_type == 'invoice.payment_failed':
         invoice = event['data']['object']
-        subscription_id = invoice['subscription']
-        subscription = stripe.Subscription.retrieve(subscription_id)
-
-        paid_cycles = int(subscription.metadata.get('paid_cycles', '0'))
-        max_cycles = int(subscription.metadata.get('max_cycles', str(MAX_BIWEEKLY_PAYMENTS)))
-
-        if paid_cycles >= max_cycles:
-            # Void the invoice so customer isn't charged again
-            stripe.Invoice.void_invoice(invoice['id'])
-            print(f"Voided invoice for {subscription_id} (paid_cycles={paid_cycles}, max={max_cycles})")
-
-    elif event['type'] == 'invoice.payment_failed':
-        invoice = event['data']['object']
-        print(f"Payment failed for {invoice['subscription']}")
+        print(f"⚠Payment failed for {invoice.get('subscription')}")
 
     return '', 200
 
