@@ -99,10 +99,19 @@ def jotform_hook():
         print("Received Jotform data:", data)
 
         # Example: Extract key fields from Jotform
-        number_of_kids = int(data.get('number_of_kids', 1))
-        payment_type = data.get('payment_type', 'full').lower()
+        raw_kids = data.get('number_of_kids', '').strip()
+        if not raw_kids.isdigit():
+            raise ValueError("number_of_kids must be a number")
 
-        return jsonify({"status": "received"}), 200
+        number_of_kids = int(raw_kids)
+        if number_of_kids < 1 or number_of_kids > MAX_KIDS:
+            raise ValueError("Number of kids must be between 1 & 5")
+        payment_type = data.get('payment_type', 'full').lower()
+        if payment_type not in ['full', 'biweekly']:
+            raise ValueError("Invalid payment type. Must be full or biweekly.")
+
+        return jsonify({"status": "received", "number_of_kids": number_of_kids, "payment_type": payment_type}), 200
+        
     except Exception as e:
         return jsonify(error=str(e)), 400
 
