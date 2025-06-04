@@ -5,13 +5,13 @@ import time
 from flask import Flask, jsonify, redirect, request, abort
 import stripe
 
-stripe.api_key = 'sk_test_51RS0iTHBc2BQhQpd7U1M8SX3mNDtveLR0ItmVWPR5fzqjNA2UwiEzclw27mxW4d8ynjBvl6cDhIHZ9kVeNZYqErw00oKalX4d7'
+stripe.api_key = os.environ['STRIPE_SECRET_KEY']
 
 app = Flask(__name__, static_url_path='', static_folder='public')
 
 YOUR_DOMAIN = 'https://stripecheckout-jotform.onrender.com'
-YOUR_PRODUCT_ID = 'prod_SPnt2yMB3QVrLX'  
-WEBHOOK_SECRET = 'whsec_FSKYA00pFHTgVrgEyn5RieY2png2MdWz'  
+PRODUCT_ID = os.environ['PRODUCT_ID']
+WEBHOOK_SECRET = os.environ['WEBHOOK_SECRET']  
 
 MAX_KIDS = 5
 MAX_BIWEEKLY_PAYMENTS = 3
@@ -33,7 +33,7 @@ def create_biweekly_price(amount_cents):
         unit_amount=amount_cents,
         currency='cad',
         recurring={'interval': 'week', 'interval_count': 2},
-        product='prod_SPnt2yMB3QVrLX',
+        product= PRODUCT_ID,
     )
     return price.id
 
@@ -51,7 +51,7 @@ def redirect_to_checkout():
             price = stripe.Price.create(
                 unit_amount=total_cents,
                 currency='cad',
-                product='prod_SPnt2yMB3QVrLX',
+                product= PRODUCT_ID,
             )
             session = stripe.checkout.Session.create(
                 payment_method_types=['card'],
