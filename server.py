@@ -9,7 +9,7 @@ stripe.api_key = os.environ['STRIPE_SECRET_KEY']
 
 app = Flask(__name__, static_url_path='', static_folder='public')
 
-YOUR_DOMAIN = 'https://stripecheckout-jotform.onrender.com'
+YOUR_DOMAIN = os.environ.get("YOUR_DOMAIN")
 PRODUCT_ID = os.environ['PRODUCT_ID']
 WEBHOOK_SECRET = os.environ['WEBHOOK_SECRET']
 
